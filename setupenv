@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+
+export PATH=$PATH:$(realpath ~/tools/zig-linux-x86_64-0.11.0)
