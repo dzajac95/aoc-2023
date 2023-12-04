@@ -68,7 +68,6 @@ pub fn run(input: []const u8) !void {
         w = line.len;
     }
     var grid = try Grid.init(input, w, h);
-    print("Grid Dimensions: {d}w x {d}h\n", .{ grid.w, grid.h });
 
     var symFound: bool = false;
     var currNum = std.ArrayList(u8).init(gpa);
@@ -86,17 +85,20 @@ pub fn run(input: []const u8) !void {
             } else {
                 if (symFound) {
                     const num = try fmt.parseInt(usize, currNum.items, 10);
-                    print("{d} ", .{num});
                     answer += num;
                 }
                 currNum.clearAndFree();
                 symFound = false;
             }
         }
+        // reached end-of-line, there could be a valid number ready to go
+        if (symFound) {
+            const num = try fmt.parseInt(usize, currNum.items, 10);
+            answer += num;
+        }
         currNum.clearAndFree();
         symFound = false;
-        print("\n", .{});
     }
 
-    print("ANSWER: {d}\n", .{answer});
+    print("Answer: {d}\n", .{answer});
 }
