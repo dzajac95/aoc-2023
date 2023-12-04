@@ -70,7 +70,6 @@ pub fn run(input: []const u8) !void {
     var grid = try Grid.init(input, w, h);
     print("Grid Dimensions: {d}w x {d}h\n", .{ grid.w, grid.h });
 
-    var numFound: bool = false;
     var symFound: bool = false;
     var currNum = std.ArrayList(u8).init(gpa);
     defer currNum.deinit();
@@ -80,7 +79,6 @@ pub fn run(input: []const u8) !void {
         for (0..grid.w) |x| {
             const c = grid.get(x, y);
             if (ascii.isDigit(c)) {
-                numFound = true;
                 try currNum.append(c);
                 if (grid.hasSym(x, y)) {
                     symFound = true;
@@ -92,10 +90,11 @@ pub fn run(input: []const u8) !void {
                     answer += num;
                 }
                 currNum.clearAndFree();
-                numFound = false;
                 symFound = false;
             }
         }
+        currNum.clearAndFree();
+        symFound = false;
         print("\n", .{});
     }
 
