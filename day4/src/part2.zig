@@ -22,9 +22,9 @@ pub fn run(input: []const u8) !void {
     while (lines.next()) |_| {
         uniqueCards += 1;
     }
+    lines.reset();
     var cardTotals: []u32 = try gpa.alloc(u32, uniqueCards);
     @memset(cardTotals, 1);
-    lines = mem.tokenizeScalar(u8, input, '\n');
     while (lines.next()) |line| {
         var split1 = mem.splitSequence(u8, line, ": ");
         // Parse card ID
