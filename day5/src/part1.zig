@@ -4,7 +4,7 @@ const mem = std.mem;
 const fmt = std.fmt;
 const ascii = std.ascii;
 
-// https://adventofcode.com/2023/day/4
+// https://adventofcode.com/2023/day/5
 
 const Mapping = struct {
     dstStart: usize,
