@@ -30,8 +30,12 @@ const Mapping = struct {
         std.debug.print("src: {d} dst: {d} range: {d}\n", .{ self.srcStart, self.dstStart, self.range });
     }
 
-    pub fn contains(self: Mapping, num: usize) bool {
-        return num >= self.srcStart and num <= self.srcStart + self.range;
+    pub fn containsSrc(self: Mapping, num: usize) bool {
+        return num >= self.srcStart and num < self.srcStart + self.range;
+    }
+
+    pub fn containsDst(self: Mapping, num: usize) bool {
+        return num >= self.dstStart and num < self.dstStart + self.range;
     }
 };
 
@@ -59,21 +63,38 @@ const IdMap = struct {
         }
     }
 
-    fn getMapping(self: IdMap, target: usize) ?Mapping {
+    fn getMappingBySrc(self: IdMap, target: usize) ?Mapping {
         for (self.mappings.items) |mapping| {
-            if (mapping.contains(target)) {
+            if (mapping.containsSrc(target)) {
                 return mapping;
             }
         }
         return null;
     }
 
-    pub fn get(self: IdMap, key: usize) usize {
-        if (self.getMapping(key)) |map| {
-            const destNum = map.dstStart + (key - map.srcStart);
+    fn getMappingByDst(self: IdMap, target: usize) ?Mapping {
+        for (self.mappings.items) |mapping| {
+            if (mapping.containsDst(target)) {
+                return mapping;
+            }
+        }
+        return null;
+    }
+    pub fn getDst(self: IdMap, src: usize) usize {
+        if (self.getMappingBySrc(src)) |map| {
+            const destNum = map.dstStart + (src - map.srcStart);
             return destNum;
         } else {
-            return key;
+            return src;
+        }
+    }
+
+    pub fn getSrc(self: IdMap, dst: usize) usize {
+        if (self.getMappingByDst(dst)) |map| {
+            const srcNum = map.srcStart + (dst - map.dstStart);
+            return srcNum;
+        } else {
+            return dst;
         }
     }
 
@@ -83,6 +104,10 @@ const IdMap = struct {
         }
     }
 };
+
+fn mapDstLt(_: void, lhs: Mapping, rhs: Mapping) bool {
+    return lhs.dstStart < rhs.dstStart;
+}
 
 const MapChain = struct {
     seedToSoil: IdMap,
@@ -138,31 +163,42 @@ const MapChain = struct {
     }
 
     pub fn getLoc(self: MapChain, seed: usize) usize {
-        const soil = self.seedToSoil.get(seed);
-        const fert = self.soilToFert.get(soil);
-        const water = self.fertToWater.get(fert);
-        const light = self.waterToLight.get(water);
-        const temp = self.lightToTemp.get(light);
-        const humidity = self.tempToHumidity.get(temp);
-        const loc = self.humidityToLoc.get(humidity);
+        const soil = self.seedToSoil.getDst(seed);
+        const fert = self.soilToFert.getDst(soil);
+        const water = self.fertToWater.getDst(fert);
+        const light = self.waterToLight.getDst(water);
+        const temp = self.lightToTemp.getDst(light);
+        const humidity = self.tempToHumidity.getDst(temp);
+        const loc = self.humidityToLoc.getDst(humidity);
         return loc;
+    }
+
+    pub fn seedFromLoc(self: MapChain, loc: usize) usize {
+        const humidity = self.humidityToLoc.getSrc(loc);
+        const temp = self.tempToHumidity.getSrc(humidity);
+        const light = self.lightToTemp.getSrc(temp);
+        const water = self.waterToLight.getSrc(light);
+        const fert = self.fertToWater.getSrc(water);
+        const soil = self.soilToFert.getSrc(fert);
+        const seed = self.seedToSoil.getSrc(soil);
+        return seed;
     }
 
     pub fn printChain(self: MapChain, seed: usize) void {
         print("{d} -> ", .{seed});
-        const soil = self.seedToSoil.get(seed);
+        const soil = self.seedToSoil.getDst(seed);
         print("{d} -> ", .{soil});
-        const fert = self.soilToFert.get(soil);
+        const fert = self.soilToFert.getDst(soil);
         print("{d} -> ", .{fert});
-        const water = self.fertToWater.get(fert);
+        const water = self.fertToWater.getDst(fert);
         print("{d} -> ", .{water});
-        const light = self.waterToLight.get(water);
+        const light = self.waterToLight.getDst(water);
         print("{d} -> ", .{light});
-        const temp = self.lightToTemp.get(light);
+        const temp = self.lightToTemp.getDst(light);
         print("{d} -> ", .{temp});
-        const humidity = self.tempToHumidity.get(temp);
+        const humidity = self.tempToHumidity.getDst(temp);
         print("{d} -> ", .{humidity});
-        const loc = self.humidityToLoc.get(humidity);
+        const loc = self.humidityToLoc.getDst(humidity);
         print("{d}\n", .{loc});
     }
 
@@ -180,6 +216,10 @@ const MapChain = struct {
 const SeedRange = struct {
     start: usize,
     end: usize,
+
+    pub fn contains(self: SeedRange, seed: usize) bool {
+        return seed >= self.start and seed < self.end;
+    }
 };
 
 pub fn run(input: []const u8) !void {
@@ -231,12 +271,21 @@ pub fn run(input: []const u8) !void {
 
     try maps.parse(chunks.rest());
 
+    // Sort so that location ranges are in ascending order
+    mem.sort(Mapping, maps.humidityToLoc.mappings.items, {}, mapDstLt);
     var closestLoc: usize = std.math.maxInt(usize);
-    for (seedRanges.items) |range| {
-        for (range.start..range.end) |seed| {
-            const loc = maps.getLoc(seed);
-            if (loc < closestLoc) {
-                closestLoc = loc;
+    // Iterate over location ranges
+    outer: for (maps.humidityToLoc.mappings.items) |locMap| {
+        // iterate over locations within range
+        for (locMap.dstStart..locMap.dstStart + locMap.range) |loc| {
+            // get seed ID from the given location
+            const seedID = maps.seedFromLoc(loc);
+            // check if seed exists in any of the provided seed ranges
+            for (seedRanges.items) |range| {
+                if (range.contains(seedID)) {
+                    closestLoc = loc;
+                    break :outer;
+                }
             }
         }
     }
