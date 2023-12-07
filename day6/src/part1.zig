@@ -37,19 +37,18 @@ pub fn run(input: []const u8) !void {
     }
 
     var answer: usize = 1;
+    var d: f32 = 0;
+    var T: f32 = 0;
+    var d1: f32 = 0;
+    var d2: f32 = 0;
+    var waysToBeat: usize = 0;
     for (times.items, distRecords.items) |time, record| {
+        T = @floatFromInt(time);
+        d = @floatFromInt(record);
         print("{d}, {d}\n", .{ time, record });
-        var waysToBeat: usize = 0;
-        var vel: usize = 0;
-        var d: usize = 0;
-        for (0..time) |chargeTime| {
-            vel = 1 * chargeTime;
-            const remainingTime = time - chargeTime;
-            d = vel * remainingTime;
-            if (d > record) {
-                waysToBeat += 1;
-            }
-        }
+        d1 = -1 * T + @sqrt(T * T - 4 * d) / -2;
+        d2 = -1 * T - @sqrt(T * T - 4 * d) / -2;
+        waysToBeat = @intFromFloat(@ceil(@fabs(d1 - d2)));
         answer *= waysToBeat;
     }
     print("Answer: {d}\n", .{answer});
