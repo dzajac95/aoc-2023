@@ -19,7 +19,7 @@ fn readFile(file_path: []const u8) ![]u8 {
 
 pub fn main() !void {
     // Read in file
-    const input = try readFile("sample.txt");
+    const input = try readFile("input.txt");
     defer allocator.free(input);
     var args = std.process.args();
     _ = args.next().?;
