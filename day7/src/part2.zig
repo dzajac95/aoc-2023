@@ -68,8 +68,8 @@ const Hand = struct {
             // Don't count jokers as unique
             if (i != getIndex('J')) {
                 uniqueCards += @intFromBool(count > 0);
+                if (count > maxCardCount) maxCardCount = count;
             }
-            if (count > maxCardCount) maxCardCount = count;
         }
         maxCardCount += numJokers;
         // print("Unique cards: {d}\n", .{uniqueCards});
