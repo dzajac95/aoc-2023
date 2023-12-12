@@ -176,14 +176,6 @@ pub fn run(input: []const u8) !void {
     var maze = try Maze.init(input, rowLen, nLines, gpa);
     defer maze.deinit();
 
-    for (0..maze.h) |y| {
-        for (0..maze.w) |x| {
-            const pos = Pos{ .x = x, .y = y };
-            print("{c}", .{maze.get(pos).char});
-        }
-        print("\n", .{});
-    }
-
     const startIdx = mem.indexOf(u8, input, "S").?;
     const startPos = Pos{
         .x = startIdx % (rowLen + 1),
