@@ -25,75 +25,8 @@ fn contains(haystack: []const Point, needle: Point) bool {
     return false;
 }
 
-fn fDistance(p1: Point, p2: Point) f64 {
-    const x1: f64 = @floatFromInt(p1.x);
-    const y1: f64 = @floatFromInt(p1.y);
-    const x2: f64 = @floatFromInt(p2.x);
-    const y2: f64 = @floatFromInt(p2.y);
-    return math.sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1));
-}
-
-const Offset = struct {
-    x: i32,
-    y: i32,
-};
-
-const N = Offset{ .x = 0, .y = -1 };
-const E = Offset{ .x = 1, .y = 0 };
-const S = Offset{ .x = 0, .y = 1 };
-const W = Offset{ .x = -1, .y = 0 };
-
-const DistResult = struct {
-    dist: usize,
-    trace: []Point,
-};
-
-fn distance(p1: Point, p2: Point, alloc: mem.Allocator) !DistResult {
-    var currPos: Point = p1;
-    var nextPos: Point = undefined;
-    var trace = std.ArrayList(Point).init(alloc);
-    var steps: usize = 0;
-    while (!currPos.eql(p2)) {
-        var minDistance: f64 = math.floatMax(f64);
-        const x: isize = @intCast(currPos.x);
-        const y: isize = @intCast(currPos.y);
-        for ([_]Offset{ N, E, S, W }) |off| {
-            if (x + off.x < 0 or y + off.y < 0) continue;
-            nextPos = Point{
-                .x = @intCast(x + off.x),
-                .y = @intCast(y + off.y),
-            };
-            const dist = fDistance(nextPos, p2);
-            if (dist < minDistance) {
-                minDistance = dist;
-                currPos = nextPos;
-            }
-        }
-        try trace.append(currPos);
-        steps += 1;
-    }
-    return DistResult{
-        .dist = steps,
-        .trace = try trace.toOwnedSlice(),
-    };
-}
-
-pub fn printPath(p1: Point, p2: Point, trace: []const Point, bounds: Point) void {
-    for (0..bounds.y + 1) |y| {
-        for (0..bounds.x + 1) |x| {
-            const p = Point{ .x = x, .y = y };
-            if (p.eql(p1)) {
-                print("1", .{});
-            } else if (p.eql(p2)) {
-                print("2", .{});
-            } else if (contains(trace, p)) {
-                print("#", .{});
-            } else {
-                print(".", .{});
-            }
-        }
-        print("\n", .{});
-    }
+fn distance(a: Point, b: Point) usize {
+    return (@max(a.x, b.x) - @min(a.x, b.x)) + (@max(a.y, b.y) - @min(a.y, b.y));
 }
 
 pub fn run(input: []const u8) !void {
@@ -176,19 +109,12 @@ pub fn run(input: []const u8) !void {
         }
         print("\n", .{});
     }
-    // const bounds = Point{ .x = xMax, .y = yMax };
-    // calculate distance for each pair and get sum
     var sum: usize = 0;
-    var res: DistResult = undefined;
     for (0..expanded.items.len) |i| {
         for (i + 1..expanded.items.len) |j| {
             const p1 = expanded.items[i];
             const p2 = expanded.items[j];
-            res = try distance(p1, p2, gpa);
-            // printPath(p1, p2, res.trace, bounds);
-            // print("\n", .{});
-            sum += res.dist;
-            gpa.free(res.trace);
+            sum += distance(p1, p2);
         }
     }
     print("Final sum: {d}\n", .{sum});
