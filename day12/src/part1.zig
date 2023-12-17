@@ -11,69 +11,36 @@ const ascii = std.ascii;
 var gpaObj = std.heap.GeneralPurposeAllocator(.{}){};
 const gpa = gpaObj.allocator();
 
-fn countArrangements(str: []const u8, nums: []const u16) !usize {
+fn contains(haystack: []const u8, needle: u8) bool {
+    for (haystack) |c| {
+        if (c == needle)
+            return true;
+    }
+    return false;
+}
+
+fn countArrangements(str: []const u8, nums: []const u16) usize {
+    // base cases
+    if (str.len == 0) {
+        return if (nums.len == 0) 1 else 0;
+    }
+    if (nums.len == 0) {
+        return if (contains(str, '#')) 0 else 1;
+    }
+
     var total: usize = 0;
-    var anyUnknown: bool = false;
-
-    var totalSpace: usize = 0;
-    for (str) |c| {
-        if (c != '.') {
-            totalSpace += 1;
-            anyUnknown = anyUnknown or c == '?';
-        }
+    if (contains(".?", str[0])) {
+        total += countArrangements(str[1..], nums);
     }
-
-    // if there are no unknowns, return 1
-    if (!anyUnknown or nums.len == 0) {
-        return 1;
-    }
-
-    var spaceNeeded: usize = 0;
-    for (1..nums.len) |i| {
-        spaceNeeded += nums[i];
-    }
-
-    const num = nums[0];
-    var count: usize = 0;
-    var idx: usize = 0;
-    const maxIdx = str.len - (spaceNeeded + nums.len - 1);
-    var validStartIdxs = std.ArrayList(usize).init(gpa);
-    defer validStartIdxs.deinit();
-
-    while (totalSpace - count > spaceNeeded and idx < maxIdx - num + 1) {
-        const c = str[idx];
-        if (c != '.') {
-            count += 1;
-
-            // check if this is a valid starting position
-            var valid: bool = true;
-            for (0..num) |offset| {
-                if (str[idx + offset] == '.') {
-                    valid = false;
-                    break;
-                }
+    if (contains("#?", str[0])) {
+        if (nums[0] <= str.len and !contains(str[0..nums[0]], '.')) {
+            if (nums[0] == str.len) {
+                total += countArrangements("", nums[1..]);
+            } else if (str[nums[0]] != '#') {
+                total += countArrangements(str[nums[0] + 1 ..], nums[1..]);
             }
-            // If not at the end, make sure next c ISN'T a #
-            if (idx + num < str.len)
-                valid = valid and str[idx + num] != '#';
-            // check for # before the start
-            if (idx > 1)
-                valid = valid and str[idx - 1] != '#';
-
-            if (valid)
-                try validStartIdxs.append(idx);
         }
-        idx += 1;
     }
-
-    for (validStartIdxs.items) |startIdx| {
-        const next = startIdx + num + 1;
-        if (next >= str.len) {
-            return 1;
-        }
-        total += try countArrangements(str[next..], nums[1..]);
-    }
-
     return total;
 }
 
@@ -85,6 +52,7 @@ pub fn run(input: []const u8) !void {
     var nums = std.ArrayList(u16).init(gpa);
     defer nums.deinit();
 
+    var sum: usize = 0;
     while (lines.next()) |line| {
         var split = mem.tokenizeScalar(u8, line, ' ');
         const left = split.next().?;
@@ -99,8 +67,10 @@ pub fn run(input: []const u8) !void {
             print(" {d}", .{n});
         }
         print("\n", .{});
-        const count = try countArrangements(left, nums.items);
+        const count = countArrangements(left, nums.items);
         print("Count: {d}\n", .{count});
+        sum += count;
         nums.clearAndFree();
     }
+    print("Final answer: {d}\n", .{sum});
 }
