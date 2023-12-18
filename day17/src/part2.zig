@@ -51,7 +51,6 @@ const Grid = struct {
 
     pub fn deinit(self: Self) void {
         gpa.free(self.data);
-        gpa.free(self.seen);
     }
 
     pub fn index(self: Self, x: usize, y: usize) usize {
