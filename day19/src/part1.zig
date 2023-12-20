@@ -48,17 +48,13 @@ const PartRating = struct {
     s: usize,
 };
 
-const Workflow = std.ArrayList(Rule);
-
-fn parseWorkflows(map: *std.StringHashMap(Workflow), str: []const u8) !void {
-    _ = map;
+fn parseWorkflows(map: *std.StringHashMap([]Rule), str: []const u8) !void {
     var lines = mem.tokenizeScalar(u8, str, '\n');
-    var wf = Workflow.init(gpa);
+    var wf = std.ArrayList(Rule).init(gpa);
     while (lines.next()) |line| {
         const wfStart = mem.indexOfScalar(u8, line, '{').?;
         const wfEnd = mem.indexOfScalar(u8, line, '}').?;
         const id = line[0..wfStart];
-        _ = id;
         const wfStr = line[wfStart + 1 .. wfEnd];
         var rulesIter = mem.tokenizeScalar(u8, wfStr, ',');
         while (rulesIter.next()) |ruleStr| {
@@ -88,6 +84,8 @@ fn parseWorkflows(map: *std.StringHashMap(Workflow), str: []const u8) !void {
             }
             try wf.append(rule);
         }
+        const slice = try wf.toOwnedSlice();
+        try map.put(id, slice);
         wf.clearAndFree();
     }
 }
@@ -117,18 +115,75 @@ fn parseParts(list: *std.ArrayList(PartRating), str: []const u8) !void {
     }
 }
 
+fn isAccepted(part: PartRating, key: []const u8, map: std.StringHashMap([]Rule)) bool {
+    if (map.get(key)) |wf| {
+        for (wf) |rule| {
+            var match = false;
+            switch (rule.cat) {
+                .xcool => {
+                    match = (rule.op == .lt and part.x < rule.value or
+                        rule.op == .gt and part.x > rule.value);
+                },
+                .musical => {
+                    match = (rule.op == .lt and part.m < rule.value or
+                        rule.op == .gt and part.m > rule.value);
+                },
+                .aero => {
+                    match = (rule.op == .lt and part.a < rule.value or
+                        rule.op == .gt and part.a > rule.value);
+                },
+                .shiny => {
+                    match = (rule.op == .lt and part.s < rule.value or
+                        rule.op == .gt and part.s > rule.value);
+                },
+                .none => {
+                    match = true;
+                },
+            }
+            if (match) {
+                if (mem.eql(u8, rule.dest, "A")) {
+                    return true;
+                } else if (mem.eql(u8, rule.dest, "R")) {
+                    return false;
+                } else {
+                    return isAccepted(part, rule.dest, map);
+                }
+            }
+        }
+    } else {
+        print("Key not in map: {s}\n", .{key});
+    }
+    unreachable;
+}
+
+fn clearMap(map: *std.StringHashMap([]Rule)) void {
+    var values = map.valueIterator();
+    while (values.next()) |val| {
+        gpa.free(val.*);
+    }
+}
 pub fn run(input: []const u8) !void {
     print("************\n", .{});
     print("   Part 1\n", .{});
     print("************\n", .{});
+
     var chunks = mem.tokenizeSequence(u8, input, "\n\n");
+
     const workflowStr = chunks.next().?;
-    const partsStr = chunks.next().?;
-    var workflowMap = std.StringHashMap(Workflow).init(gpa);
-    var partList = std.ArrayList(PartRating).init(gpa);
+    var workflowMap = std.StringHashMap([]Rule).init(gpa);
+    defer clearMap(&workflowMap);
     try parseWorkflows(&workflowMap, workflowStr);
+
+    const partsStr = chunks.next().?;
+    var partList = std.ArrayList(PartRating).init(gpa);
+    defer partList.deinit();
     try parseParts(&partList, partsStr);
+
+    var sum: usize = 0;
     for (partList.items) |part| {
-        print("part: {}\n", .{part});
+        if (isAccepted(part, "in", workflowMap)) {
+            sum += part.x + part.m + part.a + part.s;
+        }
     }
+    print("Answer: {d}\n", .{sum});
 }
