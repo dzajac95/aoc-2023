@@ -19,10 +19,17 @@ fn readFile(file_path: []const u8) ![]u8 {
 
 pub fn main() !void {
     // Read in file
-    const input = try readFile("sample.txt");
-    defer allocator.free(input);
     var args = std.process.args();
     _ = args.next().?;
+    var filePath: []const u8 = undefined;
+    if (args.next()) |fp| {
+        filePath = fp;
+    } else {
+        print("ERROR: must provide file path to input!\n", .{});
+        std.os.exit(1);
+    }
+    const input = try readFile(filePath);
+    defer allocator.free(input);
     if (args.next()) |subcmd| {
         if (std.mem.eql(u8, subcmd, "part1")) {
             try part1(input);
