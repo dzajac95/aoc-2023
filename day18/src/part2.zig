@@ -2,6 +2,7 @@ const std = @import("std");
 const print = std.debug.print;
 const assert = std.debug.assert;
 const mem = std.mem;
+const math = std.math;
 const fmt = std.fmt;
 
 // https://adventofcode.com/2023/day/18#part2
@@ -22,74 +23,21 @@ fn lol() void {
     assert(false);
 }
 
-const Dir = enum { N, E, S, W };
-const DirSet = std.EnumSet(Dir);
+const U = .{ .x = 0, .y = -1 };
+const D = .{ .x = 0, .y = 1 };
+const L = .{ .x = -1, .y = 0 };
+const R = .{ .x = 1, .y = 0 };
 
-const Grid = struct {
-    data: []u8,
-    w: usize,
-    h: usize,
+const Point = struct {
+    x: isize,
+    y: isize,
 
     const Self = @This();
-    pub fn fromInput(input: []const u8) !Self {
-        const w = mem.indexOfScalar(u8, input, '\n') orelse unreachable;
-        var lines = mem.tokenizeScalar(u8, input, '\n');
-        var numRows: usize = 0;
-        var tmp = std.ArrayList(u8).init(gpa);
-        defer tmp.deinit();
-
-        while (lines.next()) |line| {
-            numRows += 1;
-            try tmp.appendSlice(line);
-        }
+    pub fn add(self: Self, other: Self) Self {
         return Self{
-            .data = try tmp.toOwnedSlice(),
-            .w = w,
-            .h = numRows,
+            .x = self.x + other.x,
+            .y = self.y + other.y,
         };
-    }
-
-    pub fn deinit(self: Self) void {
-        gpa.free(self.data);
-    }
-
-    pub fn index(self: Self, x: usize, y: usize) usize {
-        return y * self.w + x;
-    }
-
-    pub fn get(self: Self, x: usize, y: usize) u8 {
-        return self.data[self.index(x, y)];
-    }
-
-    pub fn disp(self: Self) void {
-        for (0..self.h) |y| {
-            for (0..self.w) |x| {
-                print("{c}", .{self.get(x, y)});
-            }
-            print("\n", .{});
-        }
-    }
-
-    fn move(self: Self, x: *usize, y: *usize, dir: Dir) bool {
-        switch (dir) {
-            .N => {
-                if (y.* < 1) return false;
-                y.* -= 1;
-            },
-            .E => {
-                if (x.* >= self.w - 1) return false;
-                x.* += 1;
-            },
-            .S => {
-                if (y.* >= self.h - 1) return false;
-                y.* += 1;
-            },
-            .W => {
-                if (x.* < 1) return false;
-                x.* -= 1;
-            },
-        }
-        return true;
     }
 };
 
@@ -98,7 +46,43 @@ pub fn run(input: []const u8) !void {
     print("   Part 2\n", .{});
     print("************\n", .{});
     var digPlan = mem.tokenizeScalar(u8, input, '\n');
+    var currPoint: Point = .{
+        .x = 0,
+        .y = 0,
+    };
+    var pointsArr = std.ArrayList(Point).init(gpa);
+    defer pointsArr.deinit();
+    var boundaryNum: isize = 0;
+    try pointsArr.append(currPoint);
     while (digPlan.next()) |instr| {
-        print("{s}\n", .{instr});
+        const startIdx = mem.indexOfScalar(u8, instr, '#').? + 1;
+        const endIdx = mem.indexOfScalar(u8, instr, ')').?;
+        const len: isize = try fmt.parseInt(isize, instr[startIdx..][0..5], 16);
+        const dirC = instr[endIdx - 1];
+        print("{d}, {c}\n", .{ len, dirC });
+        var dir: Point = switch (dirC) {
+            '0' => R,
+            '1' => D,
+            '2' => L,
+            '3' => U,
+            else => unreachable,
+        };
+        const nextPoint: Point = .{
+            .x = currPoint.x + dir.x * len,
+            .y = currPoint.y + dir.y * len,
+        };
+        try pointsArr.append(nextPoint);
+        boundaryNum += len;
+        currPoint = nextPoint;
     }
+    const points = try pointsArr.toOwnedSlice();
+    print("Points:\n", .{});
+    var area: isize = 0;
+    for (0..points.len) |i| {
+        area += points[i].x * (points[(i + 1) % points.len].y - points[(i + points.len - 1) % points.len].y);
+    }
+    area = @divFloor(area, 2);
+    area = try math.absInt(area);
+    const interiorArea = area - @divFloor(boundaryNum, 2) + 1;
+    print("Answer: {d}\n", .{interiorArea + boundaryNum});
 }
